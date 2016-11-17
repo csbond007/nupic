@@ -72,7 +72,7 @@ MODEL_PARAMS = \
                                                    u'V9': None,
                                                    u'heartbeat': { 'clipInput': True,
                                                                    'fieldname': 'heartbeat',
-                                                                   'maxval': 300.0,
+                                                                   'maxval': 53.0,
                                                                    'minval': 0.0,
                                                                    'n': 272,
                                                                    'name': 'heartbeat',

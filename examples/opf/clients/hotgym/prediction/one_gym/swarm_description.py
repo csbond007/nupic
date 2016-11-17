@@ -241,7 +241,7 @@ SWARM_DESCRIPTION = {
     }
   ],
   "streamDef": {
-    "info": "heartbeat",
+    "info": "heart-beat",
     "version": 1,
     "streams": [
       {

@@ -43,7 +43,7 @@ DESCRIPTION = (
 )
 
 DATA_FILE = "heart-beat"
-DATA_DIR = "."   # "/home/ksaha/Data/Data_Run"
+DATA_DIR = "." # "/home/ksaha/Data/Data_Run"
 MODEL_PARAMS_DIR = "./model_params"
 INPUT_DATA = "%s/%s.csv" % (DATA_DIR, DATA_FILE.replace(" ", "_"))
 # '7/2/10 0:00'
@@ -120,7 +120,7 @@ def runIoThroughNupic(model):
         val_heartbeat = str(df.iloc[num_records_index,1])
 
 
-        CQL_Insert_String = "INSERT INTO data_input_11_17_1 (patient_id,time_stamp, heartbeat) " + \
+        CQL_Insert_String = "INSERT INTO data_input_11_17_3 (patient_id,time_stamp, heartbeat) " + \
                              "VALUES ('" + patient_id + "','"+ val_time_stamp + "','" + \
                             val_heartbeat + "');"
 
@@ -128,7 +128,7 @@ def runIoThroughNupic(model):
         
         # Add the record from the actual data source to the Cassandra input table
         ## Read back the latest row added from Cassandra input table
-        CQLString = "SELECT * FROM data_input_11_17_1 LIMIT 1;" # Need to check the actual syntax to get the latest row
+        CQLString = "SELECT * FROM data_input_11_17_3  LIMIT 1;" # Need to check the actual syntax to get the latest row
         rows = session.execute(CQLString)
         for user_row in rows:
                 data_df = pd.DataFrame({'col_1' : [user_row.time_stamp],'col_2' : [user_row.heartbeat]})
@@ -155,7 +155,7 @@ def runIoThroughNupic(model):
         timestamp = str(timestamp.strftime('%Y-%m-%d %H:%M:%S.%f')[:-3])
         print timestamp, heartbeat, prediction, anomalyScore, anomalyLikelihood 
         
-        CQL_Output_String = "INSERT INTO data_output_11_17_1 (patient_id,timestamp,heartbeat, \
+        CQL_Output_String = "INSERT INTO data_output_11_17_3 (patient_id,timestamp,heartbeat, \
                              prediction,anomalyScore,anomalyLikelihood) " + "VALUES ('" + \
                              patient_id + "','"+ str(timestamp) + "','" + str(heartbeat) + \
 			     "','" + str(prediction) + "','" + str(anomalyScore) + "','" + \
