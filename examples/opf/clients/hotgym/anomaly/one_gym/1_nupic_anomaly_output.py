@@ -71,13 +71,11 @@ class NuPICFileOutput(NuPICOutput):
 
   def __init__(self, *args, **kwargs):
     super(NuPICFileOutput, self).__init__(*args, **kwargs)
-    # Prevent from creating local File for output
-    '''
     self.outputFiles = []
     self.outputWriters = []
     self.lineCount = 0
     headerRow = [
-      'timestamp', 'heart_beat', 'prediction',
+      'timestamp', 'kw_energy_consumption', 'prediction',
       'anomaly_score', 'anomaly_likelihood'
     ]
     outputFileName = "%s_out.csv" % self.name
@@ -85,7 +83,7 @@ class NuPICFileOutput(NuPICOutput):
     self.outputFile = open(outputFileName, "w")
     self.outputWriter = csv.writer(self.outputFile)
     self.outputWriter.writerow(headerRow)
-    '''
+
 
 
 
@@ -95,9 +93,8 @@ class NuPICFileOutput(NuPICOutput):
         value, anomalyScore, timestamp
       )
       outputRow = [timestamp, value, predicted, anomalyScore, anomalyLikelihood]
-      # self.outputWriter.writerow(outputRow) # Prevent from creating local File for output
-      # self.lineCount += 1
-      return anomalyLikelihood
+      self.outputWriter.writerow(outputRow)
+      self.lineCount += 1
 
 
 

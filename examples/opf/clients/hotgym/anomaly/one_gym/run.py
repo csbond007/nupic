@@ -26,11 +26,12 @@ Groups together code used for creating a NuPIC model and dealing with IO.
 import importlib
 import sys
 import csv
-import datetime
-
-from nupic.data.inference_shifter import InferenceShifter
+#import datetime
+from datetime import datetime
+import pandas as pd
+from cassandra.cluster import Cluster
 from nupic.frameworks.opf.modelfactory import ModelFactory
-
+import time
 import nupic_anomaly_output
 
 
@@ -40,12 +41,15 @@ DESCRIPTION = (
   "are written to an output file (default) or plotted dynamically if\n"
   "the --plot option is specified.\n"
 )
-GYM_NAME = "rec-center-hourly"
-DATA_DIR = "."
-MODEL_PARAMS_DIR = "./model_params"
-# '7/2/10 0:00'
-DATE_FORMAT = "%m/%d/%y %H:%M"
 
+DATA_FILE = "heart-beat"
+DATA_DIR = "."   # "/home/ksaha/Data/Data_Run"
+MODEL_PARAMS_DIR = "./model_params"
+INPUT_DATA = "%s/%s.csv" % (DATA_DIR, DATA_FILE.replace(" ", "_"))
+# '7/2/10 0:00'
+DATE_FORMAT = "%Y-%m-%d %H:%M:%S.%f"
+#DATE_FORMAT = "%m/%d/%y %H:%M"
+#INPUT_DATA = "%s/%s.csv" % (DATA_DIR, DATA_FILE.replace(" ", "_"))
 
 def createModel(modelParams):
   """
@@ -55,98 +59,131 @@ def createModel(modelParams):
   :return: OPF Model object
   """
   model = ModelFactory.create(modelParams)
-  model.enableInference({"predictedField": "kw_energy_consumption"})
+  model.enableInference({"predictedField": "heartbeat"})
   return model
 
 
 
-def getModelParamsFromName(gymName):
+def getModelParamsFromName():
   """
   Given a gym name, assumes a matching model params python module exists within
   the model_params directory and attempts to import it.
-  :param gymName: Gym name, used to guess the model params module name.
   :return: OPF Model params dictionary
   """
   importName = "model_params.%s_model_params" % (
-    gymName.replace(" ", "_").replace("-", "_")
+    DATA_FILE.replace(" ", "_").replace("-", "_")
   )
   print "Importing model params from %s" % importName
   try:
     importedModelParams = importlib.import_module(importName).MODEL_PARAMS
   except ImportError:
     raise Exception("No model params exist for '%s'. Run swarm first!"
-                    % gymName)
+                    % DATA_FILE)
   return importedModelParams
 
 
 
-def runIoThroughNupic(inputData, model, gymName, plot):
+def runIoThroughNupic(model):
   """
   Handles looping over the input data and passing each row into the given model
   object, as well as extracting the result object and passing it into an output
   handler.
   :param inputData: file path to input data CSV
   :param model: OPF Model object
-  :param gymName: Gym name, used for output handler naming
-  :param plot: Whether to use matplotlib or not. If false, uses file output.
   """
-  inputFile = open(inputData, "rb")
-  csvReader = csv.reader(inputFile)
-  # skip header rows
-  csvReader.next()
-  csvReader.next()
-  csvReader.next()
 
-  shifter = InferenceShifter()
-  if plot:
-    output = nupic_anomaly_output.NuPICPlotOutput(gymName)
-  else:
-    output = nupic_anomaly_output.NuPICFileOutput(gymName)
+  output = nupic_anomaly_output.NuPICFileOutput(DATA_FILE)
 
-  counter = 0
-  for row in csvReader:
-    counter += 1
-    if (counter % 100 == 0):
-      print "Read %i lines..." % counter
-    timestamp = datetime.datetime.strptime(row[0], DATE_FORMAT)
-    consumption = float(row[1])
-    result = model.run({
-      "timestamp": timestamp,
-      "kw_energy_consumption": consumption
-    })
+  cluster = Cluster(['10.10.40.138'])
+  session = cluster.connect('hotgym')  # key-space = hotgym
+  print ("Connected!")
 
-    if plot:
-      result = shifter.shift(result)
+  num_records_index = 0
+  total_records = 767 # -1 
+  patient_id = '101'
+  
+  # Master Data Source
+  df = pd.read_csv(INPUT_DATA)
 
-    prediction = result.inferences["multiStepBestPredictions"][1]
-    anomalyScore = result.inferences["anomalyScore"]
-    output.write(timestamp, consumption, prediction, anomalyScore)
+  while(num_records_index < total_records):
 
-  inputFile.close()
-  output.close()
+        print "Processing record = %i ..." % num_records_index
+#        print datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]
+	
+#        dt = datetime.now()
+        val_time_stamp = str(datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3])
+#        print val_time_stamp
+#        str(datetime.datetime.now())  # dt.microsecond
+#        print val_time_stamp
+#        print(datetime.now())#str(int(float(datetime.now().strftime("%s.%f"))) * 1000)
+        
+        val_heartbeat = str(df.iloc[num_records_index,1])
 
 
+        CQL_Insert_String = "INSERT INTO data_input_11_17_1 (patient_id,time_stamp, heartbeat) " + \
+                             "VALUES ('" + patient_id + "','"+ val_time_stamp + "','" + \
+                            val_heartbeat + "');"
 
-def runModel(gymName, plot=False):
+        session.execute(CQL_Insert_String)
+        
+        # Add the record from the actual data source to the Cassandra input table
+        ## Read back the latest row added from Cassandra input table
+        CQLString = "SELECT * FROM data_input_11_17_1 LIMIT 1;" # Need to check the actual syntax to get the latest row
+        rows = session.execute(CQLString)
+        for user_row in rows:
+                data_df = pd.DataFrame({'col_1' : [user_row.time_stamp],'col_2' : [user_row.heartbeat]})
+
+        timestamp = datetime.strptime(str(data_df.iloc[0,0]), DATE_FORMAT)
+
+        heartbeat = float(data_df.iloc[0,1])
+
+        #print timestamp,heartbeat
+        
+             
+        result = model.run({
+                            "timestamp": timestamp,
+                            "heartbeat": heartbeat
+                           })
+        
+        prediction = result.inferences["multiStepBestPredictions"][1]
+        anomalyScore = result.inferences["anomalyScore"]
+        ## Write this anomaly score to the Cassandra output table
+        ## For the time-being writing to flat file
+        
+        anomalyLikelihood = output.write(timestamp, heartbeat, prediction, anomalyScore)
+
+        timestamp = str(timestamp.strftime('%Y-%m-%d %H:%M:%S.%f')[:-3])
+        print timestamp, heartbeat, prediction, anomalyScore, anomalyLikelihood 
+        
+        CQL_Output_String = "INSERT INTO data_output_11_17_1 (patient_id,timestamp,heartbeat, \
+                             prediction,anomalyScore,anomalyLikelihood) " + "VALUES ('" + \
+                             patient_id + "','"+ str(timestamp) + "','" + str(heartbeat) + \
+			     "','" + str(prediction) + "','" + str(anomalyScore) + "','" + \
+			     str(anomalyLikelihood) +"');"
+
+        session.execute(CQL_Output_String)
+                
+        # To simulate real-time case we add delay here
+
+        print("Waiting for the next record. Delay is 1 sec")
+
+        time.sleep(.001)
+
+        num_records_index += 1
+
+  #output.close()
+
+
+def runModel():
   """
   Assumes the gynName corresponds to both a like-named model_params file in the
   model_params directory, and that the data exists in a like-named CSV file in
   the current directory.
-  :param gymName: Important for finding model params and input CSV file
-  :param plot: Plot in matplotlib? Don't use this unless matplotlib is
-  installed.
   """
-  print "Creating model from %s..." % gymName
-  model = createModel(getModelParamsFromName(gymName))
-  inputData = "%s/%s.csv" % (DATA_DIR, gymName.replace(" ", "_"))
-  runIoThroughNupic(inputData, model, gymName, plot)
-
-
+  print "Creating model from %s..." % DATA_FILE
+  model = createModel(getModelParamsFromName())
+  runIoThroughNupic(model)
 
 if __name__ == "__main__":
   print DESCRIPTION
-  plot = False
-  args = sys.argv[1:]
-  if "--plot" in args:
-    plot = True
-  runModel(GYM_NAME, plot=plot)
+  runModel()

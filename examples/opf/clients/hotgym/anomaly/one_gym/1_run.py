@@ -21,7 +21,7 @@
 # ----------------------------------------------------------------------
 """
 Groups together code used for creating a NuPIC model and dealing with IO.
-(This is a component of the One Hot Gym Prediction Tutorial.)
+(This is a component of the One Hot Gym Anomaly Tutorial.)
 """
 import importlib
 import sys
@@ -29,11 +29,9 @@ import csv
 import datetime
 
 from nupic.data.inference_shifter import InferenceShifter
-from nupic.frameworks.opf.metrics import MetricSpec
 from nupic.frameworks.opf.modelfactory import ModelFactory
-from nupic.frameworks.opf.predictionmetricsmanager import MetricsManager
 
-import nupic_output
+import nupic_anomaly_output
 
 
 DESCRIPTION = (
@@ -41,38 +39,34 @@ DESCRIPTION = (
   "and pushes each line of input from the gym into the model. Results\n"
   "are written to an output file (default) or plotted dynamically if\n"
   "the --plot option is specified.\n"
-  "NOTE: You must run ./swarm.py before this, because model parameters\n"
-  "are required to run NuPIC.\n"
 )
-GYM_NAME = "heart-beat"  # or use "rec-center-every-15m-large"
+GYM_NAME = "rec-center-hourly"
 DATA_DIR = "."
 MODEL_PARAMS_DIR = "./model_params"
 # '7/2/10 0:00'
 DATE_FORMAT = "%m/%d/%y %H:%M"
 
-_METRIC_SPECS = (
-    MetricSpec(field='heartbeat', metric='multiStep',
-               inferenceElement='multiStepBestPredictions',
-               params={'errorMetric': 'aae', 'window': 1000, 'steps': 1}),
-    MetricSpec(field='heartbeat', metric='trivial',
-               inferenceElement='prediction',
-               params={'errorMetric': 'aae', 'window': 1000, 'steps': 1}),
-    MetricSpec(field='heartbeat', metric='multiStep',
-               inferenceElement='multiStepBestPredictions',
-               params={'errorMetric': 'altMAPE', 'window': 1000, 'steps': 1}),
-    MetricSpec(field='heartbeat', metric='trivial',
-               inferenceElement='prediction',
-               params={'errorMetric': 'altMAPE', 'window': 1000, 'steps': 1}),
-)
 
 def createModel(modelParams):
+  """
+  Given a model params dictionary, create a CLA Model. Automatically enables
+  inference for kw_energy_consumption.
+  :param modelParams: Model params dict
+  :return: OPF Model object
+  """
   model = ModelFactory.create(modelParams)
-  model.enableInference({"predictedField": "heartbeat"})
+  model.enableInference({"predictedField": "kw_energy_consumption"})
   return model
 
 
 
 def getModelParamsFromName(gymName):
+  """
+  Given a gym name, assumes a matching model params python module exists within
+  the model_params directory and attempts to import it.
+  :param gymName: Gym name, used to guess the model params module name.
+  :return: OPF Model params dictionary
+  """
   importName = "model_params.%s_model_params" % (
     gymName.replace(" ", "_").replace("-", "_")
   )
@@ -87,6 +81,15 @@ def getModelParamsFromName(gymName):
 
 
 def runIoThroughNupic(inputData, model, gymName, plot):
+  """
+  Handles looping over the input data and passing each row into the given model
+  object, as well as extracting the result object and passing it into an output
+  handler.
+  :param inputData: file path to input data CSV
+  :param model: OPF Model object
+  :param gymName: Gym name, used for output handler naming
+  :param plot: Whether to use matplotlib or not. If false, uses file output.
+  """
   inputFile = open(inputData, "rb")
   csvReader = csv.reader(inputFile)
   # skip header rows
@@ -96,36 +99,28 @@ def runIoThroughNupic(inputData, model, gymName, plot):
 
   shifter = InferenceShifter()
   if plot:
-    output = nupic_output.NuPICPlotOutput([gymName])
+    output = nupic_anomaly_output.NuPICPlotOutput(gymName)
   else:
-    output = nupic_output.NuPICFileOutput([gymName])
-
-  metricsManager = MetricsManager(_METRIC_SPECS, model.getFieldInfo(),
-                                  model.getInferenceType())
+    output = nupic_anomaly_output.NuPICFileOutput(gymName)
 
   counter = 0
   for row in csvReader:
     counter += 1
+    if (counter % 100 == 0):
+      print "Read %i lines..." % counter
     timestamp = datetime.datetime.strptime(row[0], DATE_FORMAT)
-    heartbeat = float(row[1])
+    consumption = float(row[1])
     result = model.run({
       "timestamp": timestamp,
-      "heartbeat": heartbeat
+      "kw_energy_consumption": consumption
     })
-    result.metrics = metricsManager.update(result)
-
-    if counter % 100 == 0:
-      print "Read %i lines..." % counter
-      print ("After %i records, 1-step altMAPE=%f" % (counter,
-              result.metrics["multiStepBestPredictions:multiStep:"
-                             "errorMetric='altMAPE':steps=1:window=1000:"
-                             "field=heartbeat"]))
 
     if plot:
       result = shifter.shift(result)
 
     prediction = result.inferences["multiStepBestPredictions"][1]
-    output.write([timestamp], [heartbeat], [prediction])
+    anomalyScore = result.inferences["anomalyScore"]
+    output.write(timestamp, consumption, prediction, anomalyScore)
 
   inputFile.close()
   output.close()
@@ -133,6 +128,14 @@ def runIoThroughNupic(inputData, model, gymName, plot):
 
 
 def runModel(gymName, plot=False):
+  """
+  Assumes the gynName corresponds to both a like-named model_params file in the
+  model_params directory, and that the data exists in a like-named CSV file in
+  the current directory.
+  :param gymName: Important for finding model params and input CSV file
+  :param plot: Plot in matplotlib? Don't use this unless matplotlib is
+  installed.
+  """
   print "Creating model from %s..." % gymName
   model = createModel(getModelParamsFromName(gymName))
   inputData = "%s/%s.csv" % (DATA_DIR, gymName.replace(" ", "_"))

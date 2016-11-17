@@ -26,19 +26,227 @@ SWARM_DESCRIPTION = {
       "fieldType": "datetime"
     },
     {
-      "fieldName": "kw_energy_consumption",
+      "fieldName": "heartbeat",
       "fieldType": "float",
-      "maxValue": 53.0,
+      "maxValue": 300.0,
       "minValue": 0.0
+    },
+    {
+      "fieldName": "V3",
+      "fieldType": "int"
+    },
+    {
+      "fieldName": "V4",
+      "fieldType": "float"
+    },
+    {
+      "fieldName": "V5",
+      "fieldType": "float"
+    },
+    {
+      "fieldName": "V6",
+      "fieldType": "float"
+    },
+    {
+      "fieldName": "V7",
+      "fieldType": "float"
+    },
+    {
+      "fieldName": "V8",
+      "fieldType": "float"
+    },
+    {
+      "fieldName": "V9",
+      "fieldType": "float"
+    },
+    {
+      "fieldName": "V10",
+      "fieldType": "float"
+    },
+    {
+      "fieldName": "V11",
+      "fieldType": "float"
+    },
+    {
+      "fieldName": "V12",
+      "fieldType": "float"
+    },
+    {
+      "fieldName": "V13",
+      "fieldType": "float"
+    },
+    {
+      "fieldName": "V14",
+      "fieldType": "float"
+    },
+    {
+      "fieldName": "V15",
+      "fieldType": "float"
+    },
+    {
+      "fieldName": "V16",
+      "fieldType": "float"
+    },
+    {
+      "fieldName": "V17",
+      "fieldType": "float"
+    },
+    {
+      "fieldName": "V18",
+      "fieldType": "float"
+    },
+    {
+      "fieldName": "V19",
+      "fieldType": "float"
+    },
+    {
+      "fieldName": "V20",
+      "fieldType": "float"
+    },
+    {
+      "fieldName": "V21",
+      "fieldType": "float"
+    },
+    {
+      "fieldName": "V22",
+      "fieldType": "float"
+    },
+    {
+      "fieldName": "V23",
+      "fieldType": "float"
+    },
+    {
+      "fieldName": "V24",
+      "fieldType": "float"
+    },
+    {
+      "fieldName": "V25",
+      "fieldType": "float"
+    },
+    {
+      "fieldName": "V26",
+      "fieldType": "float"
+    },
+    {
+      "fieldName": "V27",
+      "fieldType": "float"
+    },
+    {
+      "fieldName": "V28",
+      "fieldType": "float"
+    },
+    {
+      "fieldName": "V29",
+      "fieldType": "float"
+    },
+    {
+      "fieldName": "V30",
+      "fieldType": "float"
+    },
+    {
+      "fieldName": "V31",
+      "fieldType": "float"
+    },
+    {
+      "fieldName": "V32",
+      "fieldType": "float"
+    },
+    {
+      "fieldName": "V33",
+      "fieldType": "float"
+    },
+    {
+      "fieldName": "V34",
+      "fieldType": "float"
+    },
+    {
+      "fieldName": "V35",
+      "fieldType": "float"
+    },
+    {
+      "fieldName": "V36",
+      "fieldType": "float"
+    },
+    {
+      "fieldName": "V37",
+      "fieldType": "float"
+    },
+    {
+      "fieldName": "V38",
+      "fieldType": "float"
+    },
+    {
+      "fieldName": "V39",
+      "fieldType": "float"
+    },
+    {
+      "fieldName": "V40",
+      "fieldType": "float"
+    },
+    {
+      "fieldName": "V41",
+      "fieldType": "float"
+    },
+    {
+      "fieldName": "V42",
+      "fieldType": "float"
+    },
+    {
+      "fieldName": "V43",
+      "fieldType": "float"
+    },
+    {
+      "fieldName": "V44",
+      "fieldType": "float"
+    },
+    {
+      "fieldName": "V45",
+      "fieldType": "float"
+    },
+    {
+      "fieldName": "V46",
+      "fieldType": "float"
+    },
+    {
+      "fieldName": "V47",
+      "fieldType": "float"
+    },
+    {
+      "fieldName": "V48",
+      "fieldType": "float"
+    },
+    {
+      "fieldName": "V49",
+      "fieldType": "float"
+    },
+    {
+      "fieldName": "V50",
+      "fieldType": "float"
+    },
+    {
+      "fieldName": "V51",
+      "fieldType": "float"
+    },
+    {
+      "fieldName": "V52",
+      "fieldType": "float"
+    },
+    {
+      "fieldName": "V53",
+      "fieldType": "float"
+    },
+    {
+      "fieldName": "V54",
+      "fieldType": "float"
     }
   ],
   "streamDef": {
-    "info": "kw_energy_consumption",
+    "info": "heartbeat",
     "version": 1,
     "streams": [
       {
         "info": "Rec Center",
-        "source": "file://rec-center-hourly.csv",
+        "source": "file://heart-beat.csv",
         "columns": [
           "*"
         ]
@@ -46,13 +254,13 @@ SWARM_DESCRIPTION = {
     ]
   },
 
-  "inferenceType": "TemporalMultiStep",
+  "inferenceType": "TemporalAnomaly",
   "inferenceArgs": {
     "predictionSteps": [
       1
     ],
-    "predictedField": "kw_energy_consumption"
+    "predictedField": "heartbeat"
   },
   "iterationCount": -1,
-  "swarmSize": "medium"
+  "swarmSize": "small"
 }
